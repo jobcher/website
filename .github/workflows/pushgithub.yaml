@@ -1,0 +1,64 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# Sets to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+# Default to bash
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HUGO_VERSION: 0.102.3
+
+    steps:
+      - name: Install Hugo CLI
+        run: |
+          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_Linux-64bit.deb \
+          && sudo dpkg -i ${{ runner.temp }}/hugo.deb
+          tree
+      
+      - name: Checkout
+        uses: actions/checkout@v3.1.0
+        with:
+          submodules: recursive
+      
+
+      - name: Install Hugo theme
+        run: |
+          git submodule update --init --recursive --depth 1
+          curl 'https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/swagger.json' > api-ref-assets/api/swagger.json
+          make api-reference
+          tree
+      - name: Build with Hugo
+        run: |
+          Make all
+
+      - name: Deploy Web
+        uses: peaceiris/actions-gh-pages@v3.8.0
+        with:
+            PERSONAL_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+            EXTERNAL_REPOSITORY: jobcher/k8s-doc
+            PUBLISH_BRANCH: main
+            PUBLISH_DIR: ./public
+            commit_message: ${{ github.event.head_commit.message }}
+
+  
